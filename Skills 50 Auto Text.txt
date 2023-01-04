@@ -1,0 +1,381 @@
+/*----------------------------------------------------------------------------*/
+/*                                                                            */
+/*    Module:       main.cpp                                                  */
+/*    Author:       C:\Users\Vy Nguyen                                        */
+/*    Created:      Tue Sep 27 2022                                           */
+/*    Description:  V5 project                                                */
+/*                                                                            */
+/*----------------------------------------------------------------------------*/
+
+// ---- START VEXCODE CONFIGURED DEVICES ----
+// Robot Configuration:
+// [Name]               [Type]        [Port(s)]
+// MotorFL              motor         2               
+// MotorFR              motor         21              
+// MotorBL              motor         4               
+// MotorBR              motor         8               
+// MotorML              motor         3               
+// MotorMR              motor         5               
+// Flywheel             motor         9               
+// IntakeMotor          motor         6               
+// Controller1          controller                    
+// Catapult             motor         1               
+// LineTrackerCata      line          A               
+// String               digital_out   H               
+// Optical              optical       15              
+// LimitSwitchB         limit         B               
+// RotationSensor       rotation      13              
+// InertialSensor       inertial      14              
+// ---- END VEXCODE CONFIGURED DEVICES ----
+
+#include "vex.h"
+#include <cmath>
+#include <string.h>
+
+using namespace vex;\
+competition Competition;
+
+double cmove;
+double TrackingCircum = 8.63938;
+double totalmoved;
+
+double chead;
+double MotorValues;
+double shead;
+
+
+
+void pre_auton(void) {
+  // Initializing Robot Configuration. DO NOT REMOVE!
+  vexcodeInit();
+
+  InertialSensor.calibrate();
+  while(InertialSensor.isCalibrating())
+  {
+    Brain.Screen.printAt(20, 30,false, "Interial Sensor Calbrating");
+    
+    
+    wait(100, timeUnits::msec);
+  }
+  
+
+  // All activities that occur before the competition starts
+  // Example: clearing encoders, setting servo positions, ...
+}
+
+
+
+void MotorStop()
+{
+  MotorBL.spin(fwd,0,pct);
+  MotorML.spin(fwd,0,pct);
+  MotorFL.spin(fwd,0,pct);
+  MotorBR.spin(fwd,0,pct);
+  MotorMR.spin(fwd,0,pct);
+  MotorFR.spin(fwd,0,pct);
+
+  MotorBL.setBrake(hold);
+  MotorML.setBrake(hold);
+  MotorFL.setBrake(hold);
+  MotorBR.setBrake(hold);
+  MotorMR.setBrake(hold);
+  MotorFR.setBrake(hold);
+}
+
+void AllMotorSpin(double Lmotor, double Rmotor)
+{
+    MotorBL.spin(fwd,Lmotor,pct);
+    MotorML.spin(fwd,Lmotor,pct);
+    MotorFL.spin(fwd,Lmotor,pct);
+    MotorBR.spin(fwd,Rmotor,pct);
+    MotorMR.spin(fwd,Rmotor,pct);
+    MotorFR.spin(fwd,Rmotor,pct);
+}
+
+double smove;
+double DirectionFix;
+
+void MoveForwards(double inches, bool forwards,int speed)//
+  {
+    RotationSensor.resetPosition();
+    smove = RotationSensor.position(rev) * TrackingCircum;
+    DirectionFix = 1;
+    MotorValues = speed;
+    if (forwards == true)
+      {
+        DirectionFix = 1;
+      }
+        else
+          {
+            DirectionFix = -1;
+          }   
+
+    while((inches > (smove - (RotationSensor.position(rev) * TrackingCircum))  ) and ((MotorValues > 1) ))
+      {
+        MotorValues = ( speed * ( 1 - ( ((RotationSensor.position(rev)*TrackingCircum) - smove) / inches ) ) ) ;
+  //      printf("Motor Value: %f\n",MotorValues);
+    MotorValues = MotorValues * DirectionFix;
+    MotorBL.spin(fwd,MotorValues,pct);
+    MotorML.spin(fwd,MotorValues,pct);
+    MotorFL.spin(fwd,MotorValues,pct);
+    MotorBR.spin(fwd,MotorValues,pct);
+    MotorMR.spin(fwd,MotorValues,pct);
+    MotorFR.spin(fwd,MotorValues,pct);
+        MotorValues = MotorValues * DirectionFix;
+      }
+      MotorStop();
+  }
+
+void Turn(int TurnValue,int speed,bool left)
+  {
+//    InertialSensor.setHeading(180,deg);
+    shead = InertialSensor.rotation(deg);
+    MotorValues = 1;
+    //printf("shead: %f\n",shead);
+
+for(int i = 0; i < 5;i++)
+  {
+
+
+    while( !(TurnValue == round(shead - InertialSensor.rotation(deg) ) ) and !(round(MotorValues) == 0) )
+      {
+        MotorValues = ( speed * ( 1 - ( ( InertialSensor.rotation(deg)) - shead) / TurnValue ) ) ;
+    MotorValues = round(MotorValues);
+    printf("Velocity %f\n", MotorValues);
+    printf("Inertial %f\n",std::abs(InertialSensor.rotation(deg)));
+    if(left)
+      {
+    MotorBL.spin(fwd,MotorValues,pct);
+    MotorML.spin(fwd,MotorValues,pct);
+    MotorFL.spin(fwd,MotorValues,pct);
+    MotorBR.spin(fwd,MotorValues*-1,pct);
+    MotorMR.spin(fwd,MotorValues*-1,pct);
+    MotorFR.spin(fwd,MotorValues*-1,pct);
+      }
+        else
+          {
+    MotorBL.spin(reverse,MotorValues,pct);
+    MotorML.spin(reverse,MotorValues,pct);
+    MotorFL.spin(reverse,MotorValues,pct);
+    MotorBR.spin(reverse,MotorValues*-1,pct);
+    MotorMR.spin(reverse,MotorValues*-1,pct);
+    MotorFR.spin(reverse,MotorValues*-1,pct);
+          }
+
+      }
+      MotorStop();
+      wait(0.1,sec);
+  }
+  }
+
+void ControllerPrint()
+  {
+  Controller1.Screen.setCursor(1, 1);
+  Controller1.Screen.clearScreen();
+  }
+
+void Driving()
+  {
+      int joystickL = ((0.0000530602 * pow(Controller1.Axis3.position(),3.0)) + 0.469292*Controller1.Axis3.position()) + ( (0.0000530602 * pow(Controller1.Axis1.position(),3.0)) + 0.469292*Controller1.Axis1.position());
+      int joystickR = ((0.0000530602 * pow(Controller1.Axis3.position(),3.0)) + 0.469292*Controller1.Axis3.position()) - ( (0.0000530602 * pow(Controller1.Axis1.position(),3.0)) + 0.469292*Controller1.Axis1.position());
+      MotorFR.spin(fwd,joystickR, pct); //moves all the motors forwards
+      MotorFL.spin(fwd,joystickL, pct);
+      MotorMR.spin(fwd,joystickR, pct);
+      MotorML.spin(fwd,joystickL, pct);
+      MotorBR.spin(fwd,joystickR, pct);
+      MotorBL.spin(fwd,joystickL, pct);
+  }
+
+double intakespeed;
+
+void Rollerspin(int colour)
+  {
+    waitUntil(Optical.isNearObject());
+    if (colour == 1) //1 for red
+      {
+        while(!(Optical.hue() < 90 or Controller1.ButtonA.pressing()))
+          {
+            //intakespeed = intakespeed + 0.01;
+            IntakeMotor.spin(fwd,intakespeed,pct);
+          }
+        IntakeMotor.spin(fwd,0,pct);
+      }
+        else if (colour == 0) //0 for blue
+        
+          {
+            while(!(Optical.hue() > 90 or Controller1.ButtonA.pressing()))
+              {
+                //intakespeed = intakespeed + 0.01;
+                IntakeMotor.spin(fwd,intakespeed,pct);
+              }
+            IntakeMotor.spin(fwd,0,pct);
+          }
+  }
+void usercontrol(void)
+{
+}
+double test;
+void autonomous(void)
+{
+double waittime = 0.5;
+  RotationSensor.setPosition(0,rev);
+  InertialSensor.setRotation(0, deg);
+Optical.setLight(ledState::on);
+Optical.brightness(100);
+intakespeed = 50;
+
+
+MoveForwards(30, true, 50);
+
+/*
+IntakeMotor.spin(fwd,50,pct);
+
+  ControllerPrint();
+  Controller1.Screen.print("Catapult prep");
+Catapult.spin(fwd,80,pct);
+waitUntil(LimitSwitchB.pressing());
+Catapult.spin(fwd,0,pct);
+Catapult.setBrake(hold);
+
+  ControllerPrint();
+  Controller1.Screen.print("Spinning 1st Roller");
+AllMotorSpin(5, 5);
+wait(1,sec);
+Rollerspin(0); //spins untill it detects blue
+  ControllerPrint();
+  Controller1.Screen.print("1st Roller Spun");
+MotorStop();
+wait(waittime,sec);
+
+  ControllerPrint();
+  Controller1.Screen.print("Moving away from 1st Roller");
+MoveForwards(16, false, 20);
+  ControllerPrint();
+  Controller1.Screen.print("Turning towards 2nd Roller");
+wait(waittime,sec);
+Turn(90,50,true); //
+  ControllerPrint();
+  Controller1.Screen.print("Moving towards 2nd Roller");
+  ControllerPrint();
+  Controller1.Screen.print("2nd Roller Spinning");
+AllMotorSpin(10, 10);
+IntakeMotor.spin(fwd,50,pct);
+//intakespeed = 100;
+Rollerspin(0);
+  ControllerPrint();
+  Controller1.Screen.print("2nd Roller Spun");
+MotorStop();
+wait(waittime,sec);
+  ControllerPrint();
+  Controller1.Screen.print("Move Away from 2nd Roller");
+MoveForwards(12, false, 20);
+wait(waittime,sec);
+  ControllerPrint();
+  Controller1.Screen.print("Turning towards Red High Goal");
+Turn(269, 50, true);
+  ControllerPrint();
+  Controller1.Screen.print("Moving towards Red High Goal");
+MoveForwards(43, false, 25);
+MotorStop();
+wait(waittime,sec);
+  ControllerPrint();
+  Controller1.Screen.print("Turning 90");
+Turn(90,50,true);
+wait(waittime,sec);
+  ControllerPrint();
+  Controller1.Screen.print("Zig Zag 1");
+MoveForwards(6, true, 25);
+wait(waittime,sec);
+
+Turn(270,50,true);
+
+MoveForwards(12, false, 25);
+wait(waittime,sec);
+Turn(10, 10, true);
+wait(waittime,sec);
+  ControllerPrint();
+  Controller1.Screen.print("Catapult firing");
+Catapult.spin(fwd,80,pct);
+wait(1,sec);
+waitUntil(LimitSwitchB.pressing());
+Catapult.spin(fwd,0,pct);
+Catapult.setBrake(hold);
+wait(waittime,sec);
+
+MoveForwards(12, false, 10);
+wait(waittime,sec);
+Turn(35,25,true);
+wait(waittime,sec);
+  ControllerPrint();
+  Controller1.Screen.print("Zig Zag 2");
+MoveForwards(24, false, 25);
+wait(waittime,sec);
+Turn(47,25,true);
+wait(waittime,sec);
+
+MoveForwards(48, false, 25);
+wait(waittime,sec);
+Turn(190,50,true);
+wait(waittime,sec);
+
+IntakeMotor.spin(fwd,100,pct);
+AllMotorSpin(50, 50);
+wait(3,sec);
+IntakeMotor.spin(fwd,0,pct);
+MotorStop();
+
+wait(waittime,sec);
+
+MoveForwards(17,false, 25 );
+wait(waittime,sec);
+
+Turn(270, 50, true);
+
+AllMotorSpin(10, 10);
+Rollerspin(0);
+IntakeMotor.spin(fwd,0,pct);
+MotorStop();
+wait(waittime,sec);
+MoveForwards(12, false, 25);
+wait(waittime,sec);
+
+Turn(90,50,true); //ALWAYS TURNS RIGHT
+wait(waittime,sec);
+AllMotorSpin(10,10);
+Rollerspin(0);
+MotorStop();
+
+wait(waittime,sec);
+MoveForwards(30, false, 25);
+wait(waittime,sec);
+Turn(90,50,true);
+AllMotorSpin(10, 10);
+Rollerspin(0);
+MotorStop();
+
+MoveForwards(6, true, 25);
+wait(waittime,sec);
+Turn(45,25,true);
+*/
+}
+
+
+int i2;
+
+int main() {
+  // Set up callbacks for autonomous and driver control periods.
+  Competition.autonomous(autonomous);
+  Competition.drivercontrol(usercontrol);
+
+  // Run the pre-autonomous function.
+  pre_auton();
+
+ Brain.Screen.drawImageFromFile("FerociousFoxLogoRed.png",0,0); 
+  // Prevent main from exiting with an infinite loop.
+while(true)
+  {
+    wait(1,sec);
+  }
+//    printf("Rotation Sensor: %f\n",RotationSensor.position(rev));
+//    printf("Inertia Sensor: %f\n", InertialSensor.heading());
+  }
